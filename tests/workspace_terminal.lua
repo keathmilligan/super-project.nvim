@@ -20,12 +20,13 @@ vim.cmd("rightbelow vsplit")
 vim.cmd("enew")
 local terminal_buffer = vim.api.nvim_get_current_buf()
 local marker = root .. "/heartbeat"
-local job = vim.fn.jobstart({
+local job = h.termstart({
   "sh",
   "-c",
   "i=0; while [ $i -lt 30 ]; do i=$((i+1)); echo $i >> " .. marker .. "; sleep 0.05; done; sleep 2",
-}, { term = true })
+})
 h.truthy(job > 0, "terminal job starts")
+h.equal(vim.bo[terminal_buffer].buftype, "terminal", "buffer is a terminal")
 local terminal_job = vim.b[terminal_buffer].terminal_job_id
 local terminal_pid = vim.fn.jobpid(job)
 

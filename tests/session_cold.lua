@@ -22,18 +22,14 @@ vim.cmd("rightbelow vsplit " .. vim.fn.fnameescape(project_a .. "/ignored.txt"))
 vim.bo.filetype = "gitcommit"
 vim.cmd("rightbelow split")
 vim.cmd("enew")
-local job = vim.fn.jobstart(
-  { "sh", "-c", "echo first >> " .. sentinel .. "; sleep 3" },
-  { term = true }
-)
+local job = h.termstart({ "sh", "-c", "echo first >> " .. sentinel .. "; sleep 3" })
 h.truthy(job > 0)
+h.equal(vim.bo.buftype, "terminal", "first buffer is a terminal")
 vim.cmd("rightbelow split")
 vim.cmd("enew")
-local second_job = vim.fn.jobstart(
-  { "sh", "-c", "echo second >> " .. sentinel .. "; sleep 3" },
-  { term = true }
-)
+local second_job = h.termstart({ "sh", "-c", "echo second >> " .. sentinel .. "; sleep 3" })
 h.truthy(second_job > 0)
+h.equal(vim.bo.buftype, "terminal", "second buffer is a terminal")
 h.truthy(vim.wait(1000, function()
   return vim.fn.filereadable(sentinel) == 1 and #vim.fn.readfile(sentinel) == 2
 end, 10))

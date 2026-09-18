@@ -39,6 +39,14 @@ function M.cleanup(path)
   end
 end
 
+function M.termstart(cmd)
+  -- jobstart({ term = true }) is Neovim 0.11+; 0.10 still uses termopen().
+  if vim.fn.has("nvim-0.11") == 1 then
+    return vim.fn.jobstart(cmd, { term = true })
+  end
+  return vim.fn.termopen(cmd)
+end
+
 function M.run(command, cwd)
   local result = vim.system(command, { cwd = cwd, text = true }):wait(5000)
   if result.code ~= 0 then

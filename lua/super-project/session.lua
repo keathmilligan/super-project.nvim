@@ -11,7 +11,14 @@ end
 
 function M.hash(key)
   if vim.fn.exists("*sha256") == 1 then
-    return vim.fn.sha256(key)
+    local ok, digest = pcall(vim.fn.sha256, key)
+    if not ok or type(digest) ~= "string" then
+      -- Neovim 0.10 sha256() rejects embedded NUL (E976).
+      ok, digest = pcall(vim.fn.sha256, key:gsub("\0", "\n"))
+    end
+    if ok and type(digest) == "string" then
+      return digest
+    end
   end
   return key:gsub("[^%w_.-]", function(char)
     return string.format("_%02x", string.byte(char))
