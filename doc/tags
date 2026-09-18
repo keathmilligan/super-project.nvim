@@ -1,0 +1,13 @@
+:SuperProjectFind	super-project.txt	/*:SuperProjectFind*
+:SuperProjectForget	super-project.txt	/*:SuperProjectForget*
+:SuperProjectOpen	super-project.txt	/*:SuperProjectOpen*
+:SuperProjectPrevious	super-project.txt	/*:SuperProjectPrevious*
+:SuperProjectRecent	super-project.txt	/*:SuperProjectRecent*
+super-project-commands	super-project.txt	/*super-project-commands*
+super-project-contents	super-project.txt	/*super-project-contents*
+super-project-events	super-project.txt	/*super-project-events*
+super-project-integrations	super-project.txt	/*super-project-integrations*
+super-project-introduction	super-project.txt	/*super-project-introduction*
+super-project-setup	super-project.txt	/*super-project-setup*
+super-project-terminal-lifetime	super-project.txt	/*super-project-terminal-lifetime*
+super-project.txt	super-project.txt	/*super-project.txt*

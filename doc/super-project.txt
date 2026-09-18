@@ -1,0 +1,116 @@
+*super-project.txt*                      Project workspaces with live terminals
+
+==============================================================================
+CONTENTS                                                   *super-project-contents*
+
+1. Introduction                                      |super-project-introduction|
+2. Setup                                                    |super-project-setup|
+3. Commands                                              |super-project-commands|
+4. Terminal lifetime                            |super-project-terminal-lifetime|
+5. Integrations                                      |super-project-integrations|
+6. Events                                                  |super-project-events|
+
+==============================================================================
+INTRODUCTION                                           *super-project-introduction*
+
+Super Project discovers configured and Git-observed project roots, saves
+project workspaces, and keeps terminal jobs alive while their project is
+parked. It provides capabilities similar to neovim-project through its own
+configuration, commands, events, and storage.
+
+Requirements: Neovim 0.10+. Git is needed for automatic Git discovery and
+branch-scoped sessions. Picker and UI integrations are optional.
+
+==============================================================================
+SETUP                                                         *super-project-setup*
+
+>lua
+  require("super-project").setup({
+    discovery = {
+      roots = { "~/projects/*" },
+      excludes = { "~/projects/archive/*" },
+      observe_git_cwd = true,
+      symlinks = "resolve",
+    },
+    sessions = {
+      scope = "project",
+    },
+    selector = {
+      backend = "builtin",
+    },
+  })
+<
+
+See README.md for the complete option table and migration map. Dependencies
+are installed through the plugin manager, not listed inside setup(). Plenary
+and Neovim Session Manager are not required.
+
+==============================================================================
+COMMANDS                                                   *super-project-commands*
+
+                                                      *:SuperProjectFind*
+:SuperProjectFind [source|recent|name|path]
+    Select from all accepted projects with the requested ordering.
+
+                                                    *:SuperProjectRecent*
+:SuperProjectRecent
+    Select from recent projects.
+
+                                                      *:SuperProjectOpen*
+:SuperProjectOpen [directory]
+    Register and open any existing, non-excluded directory. When directory is
+    omitted, browse from the current directory with vim.ui.select(). Select a
+    child or ../ to navigate, then select "Open this directory".
+
+                                                  *:SuperProjectPrevious*
+:SuperProjectPrevious [count]
+    Return to an earlier project by recency.
+
+                                                    *:SuperProjectForget*
+:SuperProjectForget [path]
+    Forget project history and cold sessions. Live terminal jobs are not
+    terminated.
+
+==============================================================================
+TERMINAL LIFETIME                               *super-project-terminal-lifetime*
+
+During a project switch, terminal buffers are hidden rather than deleted.
+Their jobs continue running and writing output. Returning to the project uses
+the same buffer, channel, and process.
+
+All parked workspace buffers become unlisted while remaining loaded, so
+bufferline UIs show only active-project buffers. Their prior listed state is
+restored with the workspace. Temporary layout buffers do not remain as listed
+[No Name] entries.
+
+Exact process continuity works only while the current Neovim process is alive.
+When a saved job is missing or exited, including after restarting Neovim, its
+window is restored with a fresh default :terminal. Super Project never stores
+or reruns the prior terminal command, arguments, environment, output, or job
+identity. Use an external process owner for process continuity across exits.
+
+==============================================================================
+INTEGRATIONS                                         *super-project-integrations*
+
+Telescope, fzf-lua, and Snacks are optional selector backends. Missing
+backends fall back to vim.ui.select.
+
+neo-tree restores filesystem visibility and expansion state. Super Tree
+restores its root, expansion, selection, pane visibility, and dimensions, and
+uses Super Project as its Projects-pane provider. barbar restores buffer order
+and pin state. These adapters are feature-detected.
+
+==============================================================================
+EVENTS                                                     *super-project-events*
+
+The plugin emits these User patterns:
+
+  SuperProjectSwitchPre       SuperProjectSwitchPost
+  SuperProjectSavePre         SuperProjectSavePost
+  SuperProjectLoadPre         SuperProjectLoadPost
+  SuperProjectRegistryChanged
+
+Event data is available as |v:event| data in Lua autocmd callbacks.
+
+==============================================================================
+vim:tw=78:ts=8:noet:ft=help:norl:
