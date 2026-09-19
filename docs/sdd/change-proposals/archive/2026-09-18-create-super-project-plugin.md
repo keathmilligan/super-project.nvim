@@ -1,6 +1,6 @@
 ---
 id: create-super-project-plugin
-status: review
+status: accepted
 features: [project-management, workspace-sessions, configuration, integrations]
 created: 2026-09-17
 updated: 2026-09-18
@@ -340,3 +340,4 @@ sequence, storage model, and failure handling.
 | 2026-09-18 | Isolated parked buffers from bufferline UIs and stopped hot restores from accumulating listed placeholders |
 | 2026-09-18 | Extended SuperProjectOpen with manual directory registration and a no-argument directory browser |
 | 2026-09-18 | Restored missing and cold terminal leaves with fresh default shells while keeping prior commands out of persisted state |
+| 2026-09-18 | Accepted change and updated living specifications |
