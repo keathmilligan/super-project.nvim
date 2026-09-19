@@ -86,11 +86,15 @@ local function layout_snapshot(layout, windows, by_id)
         return { scope = vim.fn.haslocaldir(), cwd = vim.fn.getcwd() }
       end)
       local cursor = vim.api.nvim_win_get_cursor(win)
-      -- A parked terminal keeps receiving output, so only "at the end" views
-      -- can be recreated meaningfully when the workspace returns.
+      -- A TUI's cursor can be anywhere on its live screen. Only cursors above
+      -- that screen represent scrollback positions to preserve while parked.
       local following
       if vim.bo[buffer].buftype == "terminal" then
-        following = cursor[1] >= vim.api.nvim_buf_line_count(buffer)
+        local screen_start = math.max(
+          1,
+          vim.api.nvim_buf_line_count(buffer) - vim.api.nvim_win_get_height(win) + 1
+        )
+        following = cursor[1] >= screen_start
       end
       windows[index] = {
         buffer = buffer,
@@ -326,6 +330,22 @@ end
 
 function M.park(snapshot)
   protect(snapshot)
+  -- Detach terminals before tabnew/tabclose can resize their screens (for
+  -- example when 'showtabline' changes from one tab to two). A temporary
+  -- shrink discards alternate-screen cells even if the size is restored
+  -- before the application handles SIGWINCH.
+  for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+    if not tab_var(tab, "super_project_transition") then
+      for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+        local buffer = vim.api.nvim_win_get_buf(win)
+        if vim.bo[buffer].buftype == "terminal" then
+          local scratch = vim.api.nvim_create_buf(false, true)
+          vim.bo[scratch].bufhidden = "wipe"
+          vim.api.nvim_win_set_buf(win, scratch)
+        end
+      end
+    end
+  end
   local transition = M.create_transition()
   for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
     if
@@ -419,13 +439,9 @@ local function split(win, kind)
   return vim.api.nvim_get_current_win()
 end
 
-local function build_layout(node, seed, states, buffer_states, leaves, terminal_replacements)
+local function build_layout(node, seed, leaves)
   if node.kind == "leaf" then
-    local state = states[node.window]
-    if state then
-      set_window_state(seed, state, buffer_states, terminal_replacements)
-      leaves[node.window] = seed
-    end
+    leaves[node.window] = seed
     return
   end
   local child_windows = { seed }
@@ -433,7 +449,7 @@ local function build_layout(node, seed, states, buffer_states, leaves, terminal_
     child_windows[index] = split(child_windows[index - 1], node.kind)
   end
   for index, child in ipairs(node.children) do
-    build_layout(child, child_windows[index], states, buffer_states, leaves, terminal_replacements)
+    build_layout(child, child_windows[index], leaves)
   end
 end
 
@@ -484,6 +500,7 @@ function M.restore(snapshot)
     return false, "workspace snapshot is empty"
   end
   local created_tabs = {}
+  local tab_leaves = {}
   local terminal_replacements = {}
   local known_buffers = {}
   for _, buffer in ipairs(vim.api.nvim_list_bufs()) do
@@ -503,19 +520,38 @@ function M.restore(snapshot)
         end
         created_tabs[tab_index] = tab
         local leaves = {}
-        build_layout(
-          tab_state.layout,
-          vim.api.nvim_get_current_win(),
-          tab_state.windows,
-          snapshot.protected,
-          leaves,
-          terminal_replacements
-        )
+        tab_leaves[tab_index] = leaves
+        build_layout(tab_state.layout, vim.api.nvim_get_current_win(), leaves)
+        for index, win_state in ipairs(tab_state.windows) do
+          local win = leaves[index]
+          if util.valid_win(win) then
+            apply_options(win, win_state.options)
+          end
+        end
+      end
+
+      -- Build and size the entire workspace with inert buffers. Attaching a
+      -- live terminal to an intermediate split size can irreversibly truncate
+      -- its screen, with no repaint if the app sees the same final PTY size.
+      close_transition_tabs()
+      for tab_index, tab_state in ipairs(snapshot.tabs) do
+        vim.api.nvim_set_current_tabpage(created_tabs[tab_index])
+        local leaves = tab_leaves[tab_index]
         for index, win_state in ipairs(tab_state.windows) do
           local win = leaves[index]
           if util.valid_win(win) then
             pcall(vim.api.nvim_win_set_width, win, win_state.width)
             pcall(vim.api.nvim_win_set_height, win, win_state.height)
+          end
+        end
+      end
+      for tab_index, tab_state in ipairs(snapshot.tabs) do
+        vim.api.nvim_set_current_tabpage(created_tabs[tab_index])
+        local leaves = tab_leaves[tab_index]
+        for index, win_state in ipairs(tab_state.windows) do
+          local win = leaves[index]
+          if util.valid_win(win) then
+            set_window_state(win, win_state, snapshot.protected, terminal_replacements)
           end
         end
         for index, win_state in ipairs(tab_state.windows) do
@@ -534,7 +570,6 @@ function M.restore(snapshot)
       end
 
       local active_tab = created_tabs[snapshot.active_tab] or created_tabs[1]
-      close_transition_tabs()
       if util.valid_tab(active_tab) then
         vim.api.nvim_set_current_tabpage(active_tab)
       end

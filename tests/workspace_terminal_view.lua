@@ -47,7 +47,12 @@ h.truthy(
 
 -- A terminal window that was following output must show the live screen when
 -- the project returns, not the position captured before the switch.
-vim.api.nvim_win_set_cursor(terminal_window, { line_count(), 0 })
+-- TUIs can leave their cursor anywhere on the live screen, not just the last
+-- buffer line. That still represents a live view rather than scrollback.
+vim.api.nvim_win_set_cursor(terminal_window, {
+  line_count() - vim.api.nvim_win_get_height(terminal_window) + 3,
+  0,
+})
 local captured_lines = line_count()
 h.truthy(project.open(project_b))
 h.truthy(

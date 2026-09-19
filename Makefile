@@ -9,6 +9,7 @@ TESTS := \
 	tests/workspace_deleted_file.lua \
 	tests/workspace_layout_events.lua \
 	tests/workspace_terminal.lua \
+	tests/workspace_terminal_screen.lua \
 	tests/workspace_terminal_view.lua \
 	tests/session_cold.lua \
 	tests/branch_sessions.lua \
