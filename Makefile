@@ -6,8 +6,10 @@ TESTS := \
 	tests/native_interface.lua \
 	tests/selector_adapters.lua \
 	tests/workspace_buffer_isolation.lua \
+	tests/workspace_deleted_file.lua \
 	tests/workspace_layout_events.lua \
 	tests/workspace_terminal.lua \
+	tests/workspace_terminal_view.lua \
 	tests/session_cold.lua \
 	tests/branch_sessions.lua \
 	tests/integration_adapters.lua \

@@ -85,10 +85,18 @@ local function layout_snapshot(layout, windows, by_id)
       local directory = vim.api.nvim_win_call(win, function()
         return { scope = vim.fn.haslocaldir(), cwd = vim.fn.getcwd() }
       end)
+      local cursor = vim.api.nvim_win_get_cursor(win)
+      -- A parked terminal keeps receiving output, so only "at the end" views
+      -- can be recreated meaningfully when the workspace returns.
+      local following
+      if vim.bo[buffer].buftype == "terminal" then
+        following = cursor[1] >= vim.api.nvim_buf_line_count(buffer)
+      end
       windows[index] = {
         buffer = buffer,
         view = vim.api.nvim_win_call(win, vim.fn.winsaveview),
-        cursor = vim.api.nvim_win_get_cursor(win),
+        cursor = cursor,
+        following = following,
         width = vim.api.nvim_win_get_width(win),
         height = vim.api.nvim_win_get_height(win),
         options = capture_options(win),
@@ -363,6 +371,20 @@ local function apply_cwd(win, state)
   terminal.apply_cwd(win, state.cwd, state.cwd_scope)
 end
 
+-- Displaying a loaded buffer triggers Neovim's file-timestamp check, which
+-- raises E211 as a hard error when the file was deleted while the project was
+-- parked. The window still receives the buffer before that error is raised
+-- and its contents are intact, so keep it; only substitute a scratch buffer
+-- when the swap did not happen.
+local function set_window_buffer(win, buffer)
+  local ok = pcall(vim.api.nvim_win_set_buf, win, buffer)
+  if not ok and vim.api.nvim_win_get_buf(win) ~= buffer then
+    buffer = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_win_set_buf(win, buffer)
+  end
+  return buffer
+end
+
 local function set_window_state(win, state, buffer_states, terminal_replacements)
   local buffer = state.buffer
   local buffer_state = buffer_states[buffer] or {}
@@ -379,13 +401,13 @@ local function set_window_state(win, state, buffer_states, terminal_replacements
       end
       terminal_replacements[state.buffer] = buffer
     else
-      vim.api.nvim_win_set_buf(win, buffer)
+      set_window_buffer(win, buffer)
     end
   elseif not util.valid_buf(buffer) then
     buffer = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_win_set_buf(win, buffer)
   else
-    vim.api.nvim_win_set_buf(win, buffer)
+    buffer = set_window_buffer(win, buffer)
   end
   apply_options(win, state.options)
   apply_cwd(win, state)
@@ -422,6 +444,39 @@ local function close_transition_tabs(except)
       pcall(vim.cmd, "silent tabclose!")
     end
   end
+end
+
+-- Neovim follows terminal output only for windows that display the buffer
+-- (adjust_topline() in terminal.c), so views captured before a project was
+-- parked no longer describe a terminal's live screen. Restoring them verbatim
+-- can leave a terminal window scrolled into stale scrollback, or beyond the
+-- buffer end where it renders blank filler rows, until a resize or an entry
+-- into Terminal-mode repositions it. Follow the live end for windows that
+-- were following output and clamp scrollback positions to the buffer.
+local function restore_view(win, state)
+  local view = state.view or {}
+  local buffer = vim.api.nvim_win_get_buf(win)
+  if util.valid_buf(buffer) and vim.bo[buffer].buftype == "terminal" then
+    local line_count = vim.api.nvim_buf_line_count(buffer)
+    -- A terminal replaced because its job ended while parked has no
+    -- continuity with the captured view; always show its live screen.
+    local replaced = buffer ~= state.buffer
+    if replaced or state.following ~= false then
+      return {
+        lnum = line_count,
+        col = 0,
+        topline = math.max(1, line_count - vim.api.nvim_win_get_height(win) + 1),
+      }
+    end
+    view = vim.deepcopy(view)
+    if view.lnum then
+      view.lnum = math.min(view.lnum, line_count)
+    end
+    if view.topline then
+      view.topline = math.max(1, math.min(view.topline, line_count))
+    end
+  end
+  return view
 end
 
 function M.restore(snapshot)
@@ -466,8 +521,9 @@ function M.restore(snapshot)
         for index, win_state in ipairs(tab_state.windows) do
           local win = leaves[index]
           if util.valid_win(win) then
+            local view = restore_view(win, win_state)
             pcall(vim.api.nvim_win_call, win, function()
-              vim.fn.winrestview(win_state.view or {})
+              vim.fn.winrestview(view)
             end)
           end
         end
