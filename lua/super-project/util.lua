@@ -144,4 +144,45 @@ function M.schedule_once(callback)
   end
 end
 
+local function snapshot_leaf_sizes()
+  local result = {}
+  for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+      if M.valid_win(win) and vim.api.nvim_win_get_config(win).relative == "" then
+        result[#result + 1] = {
+          win = win,
+          width = vim.api.nvim_win_get_width(win),
+          height = vim.api.nvim_win_get_height(win),
+        }
+      end
+    end
+  end
+  return result
+end
+
+local function restore_leaf_sizes(entries)
+  for _, item in ipairs(entries or {}) do
+    if M.valid_win(item.win) then
+      pcall(vim.api.nvim_win_set_width, item.win, item.width)
+      pcall(vim.api.nvim_win_set_height, item.win, item.height)
+    end
+  end
+end
+
+-- Closing or opening a sidebar with the default 'equalalways' equalizes every
+-- remaining split, so cold sessions would persist 50/50 sizes. Restoring the
+-- option also equalizes, so sizes from the callback are reapplied afterward.
+function M.without_equalalways(callback)
+  local original = vim.o.equalalways
+  vim.o.equalalways = false
+  local ok, result, extra = xpcall(callback, debug.traceback)
+  local sizes = snapshot_leaf_sizes()
+  vim.o.equalalways = original
+  restore_leaf_sizes(sizes)
+  if not ok then
+    error(result, 0)
+  end
+  return result, extra
+end
+
 return M

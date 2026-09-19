@@ -54,6 +54,37 @@ local function layout_shape(node)
   end
   return node[1] .. "(" .. table.concat(children, ",") .. ")"
 end
+local function leaf_sizes(node)
+  node = node or vim.fn.winlayout()
+  if node[1] == "leaf" then
+    local win = node[2]
+    return {
+      { width = vim.api.nvim_win_get_width(win), height = vim.api.nvim_win_get_height(win) },
+    }
+  end
+  local sizes = {}
+  for _, child in ipairs(node[2] or {}) do
+    for _, size in ipairs(leaf_sizes(child)) do
+      sizes[#sizes + 1] = size
+    end
+  end
+  return sizes
+end
+vim.o.equalalways = true
+local left = original_layout[2][1][2]
+local right_top = original_layout[2][2][2][1][2]
+vim.api.nvim_win_set_width(left, 52)
+vim.api.nvim_win_set_height(right_top, 7)
+original_layout = vim.fn.winlayout()
+local original_sizes = leaf_sizes(original_layout)
+h.truthy(
+  original_sizes[1].width ~= original_sizes[2].width,
+  "fixture starts with an uneven vertical split"
+)
+h.truthy(
+  original_sizes[2].height ~= original_sizes[3].height,
+  "fixture starts with an uneven horizontal split"
+)
 vim.cmd("tabnew " .. vim.fn.fnameescape(project_a .. "/one.txt"))
 
 local save = require("super-project.session").save
@@ -101,8 +132,29 @@ h.write(cold_child, {
   ),
   string.format("assert(p.open(%q))", project_a),
   "assert(#vim.api.nvim_list_tabpages() == 2, 'cold session lost tabs')",
+  "local function leaf_sizes(node)",
+  "  node = node or vim.fn.winlayout()",
+  "  if node[1] == 'leaf' then local win = node[2]; return { { width = vim.api.nvim_win_get_width(win), height = vim.api.nvim_win_get_height(win) } } end",
+  "  local sizes = {}",
+  "  for _, child in ipairs(node[2] or {}) do for _, size in ipairs(leaf_sizes(child)) do sizes[#sizes + 1] = size end end",
+  "  return sizes",
+  "end",
+  string.format(
+    "local expected = %s",
+    vim.inspect(original_sizes, { newline = " ", indent = " " })
+  ),
   "local nested = false",
-  "for _, tab in ipairs(vim.api.nvim_list_tabpages()) do if #vim.api.nvim_tabpage_list_wins(tab) == 3 then nested = true end end",
+  "for _, tab in ipairs(vim.api.nvim_list_tabpages()) do",
+  "  if #vim.api.nvim_tabpage_list_wins(tab) == 3 then",
+  "    nested = true",
+  "    vim.api.nvim_set_current_tabpage(tab)",
+  "    local actual = leaf_sizes()",
+  "    for index, size in ipairs(expected) do",
+  "      assert(math.abs(actual[index].width - size.width) <= 1, 'cold session lost vertical split size')",
+  "      assert(math.abs(actual[index].height - size.height) <= 1, 'cold session lost horizontal split size')",
+  "    end",
+  "  end",
+  "end",
   "assert(nested, 'cold session lost split layout')",
 })
 local child = vim
@@ -118,6 +170,10 @@ local child = vim
   }, { cwd = plugin_root, text = true })
   :wait(10000)
 h.equal(child.code, 0, "multi-tab cold session restores: " .. (child.stderr or ""))
+h.truthy(
+  not (child.stderr or ""):find("Error", 1, true),
+  "cold session child: " .. (child.stderr or "")
+)
 
 h.truthy(project.open(project_a))
 h.equal(#vim.api.nvim_list_tabpages(), 2, "all project tabs are restored")
@@ -141,6 +197,17 @@ h.equal(
   layout_shape(original_layout),
   "nested split tree is preserved"
 )
+local restored_sizes = leaf_sizes(restored_layout)
+for index, size in ipairs(original_sizes) do
+  h.truthy(
+    math.abs(restored_sizes[index].width - size.width) <= 1,
+    "hot restore preserves vertical split size"
+  )
+  h.truthy(
+    math.abs(restored_sizes[index].height - size.height) <= 1,
+    "hot restore preserves horizontal split size"
+  )
+end
 
 project._reset_for_tests()
 h.cleanup(root)

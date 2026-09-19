@@ -372,16 +372,19 @@ function M.load(key)
     return false, harden_err
   end
   data = safe_data
+  local metadata
   local ok, source_err = xpcall(function()
-    vim.cmd("silent source " .. vim.fn.fnameescape(filename))
+    util.without_equalalways(function()
+      vim.cmd("silent source " .. vim.fn.fnameescape(filename))
+      metadata = M.load_metadata(key)
+      local terminals_ok, terminal_err = restore_cold_terminals(metadata.terminals)
+      if not terminals_ok then
+        error(terminal_err)
+      end
+    end)
   end, debug.traceback)
   if not ok then
     return false, source_err
-  end
-  local metadata = M.load_metadata(key)
-  local terminals_ok, terminal_err = restore_cold_terminals(metadata.terminals)
-  if not terminals_ok then
-    return false, terminal_err
   end
   return true, metadata
 end

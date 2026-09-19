@@ -428,8 +428,6 @@ function M.restore(snapshot)
   if not snapshot or type(snapshot.tabs) ~= "table" or #snapshot.tabs == 0 then
     return false, "workspace snapshot is empty"
   end
-  local original_equalalways = vim.o.equalalways
-  vim.o.equalalways = false
   local created_tabs = {}
   local terminal_replacements = {}
   local known_buffers = {}
@@ -437,76 +435,77 @@ function M.restore(snapshot)
     known_buffers[buffer] = true
   end
   local ok, err = xpcall(function()
-    for tab_index, tab_state in ipairs(snapshot.tabs) do
-      vim.cmd("tabnew")
-      local tab = vim.api.nvim_get_current_tabpage()
-      local seed_buffer = vim.api.nvim_get_current_buf()
-      if not known_buffers[seed_buffer] then
-        known_buffers[seed_buffer] = true
-        set_buffer_var(seed_buffer, TEMPORARY_VAR, true)
-        vim.bo[seed_buffer].bufhidden = "wipe"
-        vim.bo[seed_buffer].buflisted = false
-      end
-      created_tabs[tab_index] = tab
-      local leaves = {}
-      build_layout(
-        tab_state.layout,
-        vim.api.nvim_get_current_win(),
-        tab_state.windows,
-        snapshot.protected,
-        leaves,
-        terminal_replacements
-      )
-      for index, win_state in ipairs(tab_state.windows) do
-        local win = leaves[index]
-        if util.valid_win(win) then
-          pcall(vim.api.nvim_win_set_width, win, win_state.width)
-          pcall(vim.api.nvim_win_set_height, win, win_state.height)
+    util.without_equalalways(function()
+      for tab_index, tab_state in ipairs(snapshot.tabs) do
+        vim.cmd("tabnew")
+        local tab = vim.api.nvim_get_current_tabpage()
+        local seed_buffer = vim.api.nvim_get_current_buf()
+        if not known_buffers[seed_buffer] then
+          known_buffers[seed_buffer] = true
+          set_buffer_var(seed_buffer, TEMPORARY_VAR, true)
+          vim.bo[seed_buffer].bufhidden = "wipe"
+          vim.bo[seed_buffer].buflisted = false
+        end
+        created_tabs[tab_index] = tab
+        local leaves = {}
+        build_layout(
+          tab_state.layout,
+          vim.api.nvim_get_current_win(),
+          tab_state.windows,
+          snapshot.protected,
+          leaves,
+          terminal_replacements
+        )
+        for index, win_state in ipairs(tab_state.windows) do
+          local win = leaves[index]
+          if util.valid_win(win) then
+            pcall(vim.api.nvim_win_set_width, win, win_state.width)
+            pcall(vim.api.nvim_win_set_height, win, win_state.height)
+          end
+        end
+        for index, win_state in ipairs(tab_state.windows) do
+          local win = leaves[index]
+          if util.valid_win(win) then
+            pcall(vim.api.nvim_win_call, win, function()
+              vim.fn.winrestview(win_state.view or {})
+            end)
+          end
+        end
+        local active = leaves[tab_state.active_window]
+        if util.valid_win(active) then
+          vim.api.nvim_set_current_win(active)
         end
       end
-      for index, win_state in ipairs(tab_state.windows) do
-        local win = leaves[index]
-        if util.valid_win(win) then
-          pcall(vim.api.nvim_win_call, win, function()
-            vim.fn.winrestview(win_state.view or {})
-          end)
-        end
-      end
-      local active = leaves[tab_state.active_window]
-      if util.valid_win(active) then
-        vim.api.nvim_set_current_win(active)
-      end
-    end
 
-    local active_tab = created_tabs[snapshot.active_tab] or created_tabs[1]
-    close_transition_tabs()
-    if util.valid_tab(active_tab) then
-      vim.api.nvim_set_current_tabpage(active_tab)
-    end
-    for buffer, state in pairs(snapshot.protected or {}) do
-      if util.valid_buf(buffer) and not terminal_replacements[buffer] then
-        vim.bo[buffer].bufhidden = state.bufhidden or ""
-        if state.buflisted ~= nil then
-          vim.bo[buffer].buflisted = state.buflisted
+      local active_tab = created_tabs[snapshot.active_tab] or created_tabs[1]
+      close_transition_tabs()
+      if util.valid_tab(active_tab) then
+        vim.api.nvim_set_current_tabpage(active_tab)
+      end
+      for buffer, state in pairs(snapshot.protected or {}) do
+        if util.valid_buf(buffer) and not terminal_replacements[buffer] then
+          vim.bo[buffer].bufhidden = state.bufhidden or ""
+          if state.buflisted ~= nil then
+            vim.bo[buffer].buflisted = state.buflisted
+          end
         end
       end
-    end
-    for replaced, replacement in pairs(terminal_replacements) do
-      if replaced ~= replacement and util.valid_buf(replaced) then
-        pcall(vim.api.nvim_buf_delete, replaced, { force = true })
+      for replaced, replacement in pairs(terminal_replacements) do
+        if replaced ~= replacement and util.valid_buf(replaced) then
+          pcall(vim.api.nvim_buf_delete, replaced, { force = true })
+        end
       end
-    end
-    for _, buffer in ipairs(vim.api.nvim_list_bufs()) do
-      if
-        util.valid_buf(buffer)
-        and get_buffer_var(buffer, TEMPORARY_VAR)
-        and #vim.fn.win_findbuf(buffer) == 0
-      then
-        pcall(vim.api.nvim_buf_delete, buffer, { force = true })
+      for _, buffer in ipairs(vim.api.nvim_list_bufs()) do
+        if
+          util.valid_buf(buffer)
+          and get_buffer_var(buffer, TEMPORARY_VAR)
+          and #vim.fn.win_findbuf(buffer) == 0
+        then
+          pcall(vim.api.nvim_buf_delete, buffer, { force = true })
+        end
       end
-    end
+    end)
   end, debug.traceback)
-  vim.o.equalalways = original_equalalways
   if not ok then
     return false, err
   end

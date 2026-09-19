@@ -1,5 +1,6 @@
 local config = require("super-project.config")
 local log = require("super-project.log")
+local util = require("super-project.util")
 
 local M = {}
 
@@ -58,7 +59,9 @@ function M.setup(api)
         vim.schedule(register_super_tree)
       elseif event.data == "neo-tree.nvim" or event.data == "neo-tree" then
         vim.schedule(function()
-          call("neo_tree", "restore_pending")
+          util.without_equalalways(function()
+            call("neo_tree", "restore_pending")
+          end)
         end)
       elseif event.data == "barbar.nvim" or event.data == "barbar" then
         vim.schedule(function()
@@ -82,27 +85,31 @@ function M.teardown()
 end
 
 function M.capture_and_suspend(context)
-  local states = {}
-  for _, name in ipairs(adapter_names) do
-    if config.options.integrations[name] then
-      local state = call(name, "capture", context)
-      if state ~= nil then
-        states[name] = state
-        call(name, "suspend", context, state)
+  return util.without_equalalways(function()
+    local states = {}
+    for _, name in ipairs(adapter_names) do
+      if config.options.integrations[name] then
+        local state = call(name, "capture", context)
+        if state ~= nil then
+          states[name] = state
+          call(name, "suspend", context, state)
+        end
       end
     end
-  end
-  return states
+    return states
+  end)
 end
 
 function M.restore(states, context)
   states = type(states) == "table" and states or {}
-  for _, name in ipairs(adapter_names) do
-    if config.options.integrations[name] and states[name] ~= nil then
-      call(name, "restore", context, states[name])
+  util.without_equalalways(function()
+    for _, name in ipairs(adapter_names) do
+      if config.options.integrations[name] and states[name] ~= nil then
+        call(name, "restore", context, states[name])
+      end
     end
-  end
-  register_super_tree()
+    register_super_tree()
+  end)
 end
 
 function M.seed(states, source_states, context)

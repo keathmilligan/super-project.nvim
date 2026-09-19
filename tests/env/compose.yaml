@@ -1,0 +1,15 @@
+services:
+  nvim:
+    build:
+      context: ../..
+      dockerfile: tests/env/Dockerfile
+    image: super-project-test
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      TERM: ${TERM:-xterm-256color}
+      COLORTERM: ${COLORTERM:-}
+    volumes:
+      - ../..:/plugin
+    working_dir: /workspace
+    stdin_open: true
+    tty: true

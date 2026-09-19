@@ -3,11 +3,6 @@
 A Neovim project manager with automatic Git discovery, saved workspaces, and
 terminal jobs that remain alive while another project is active.
 
-Super Project has capability parity with
-[`coffebar/neovim-project`](https://github.com/coffebar/neovim-project), but it
-uses its own configuration, commands, events, and storage. It is not a drop-in
-API replacement.
-
 ## Features
 
 - Registers the current Git worktree automatically on startup and `DirChanged`
@@ -36,10 +31,6 @@ API replacement.
 | barbar.nvim | Optional buffer-order integration |
 
 Plenary and Neovim Session Manager are not used.
-
-Dependencies belong in your plugin-manager specification, not in the
-`require("super-project").setup()` table. If an external selector is missing,
-Super Project warns once and falls back to `vim.ui.select`.
 
 ## Installation
 
@@ -302,7 +293,18 @@ Run `:checkhealth super-project` for the Neovim, Git, selector, and storage
 status. Set `logging.level = "debug"` for a transaction log that omits terminal
 commands and environment values.
 
-Run tests with:
+[`tests/env`](tests/env) is a container with an isolated Neovim (host config
+is not loaded) and sandbox Git projects in [`tests/sandbox`](tests/sandbox).
+
+```sh
+./tests/env/run.sh          # interactive nvim
+./tests/env/run.sh test     # headless unit tests
+./tests/env/run.sh health   # :checkhealth super-project
+```
+
+See [`tests/env/README.md`](tests/env/README.md).
+
+Run tests on the host with:
 
 ```sh
 make test

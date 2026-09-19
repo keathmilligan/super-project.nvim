@@ -1,4 +1,5 @@
 local path = require("super-project.path")
+local util = require("super-project.util")
 
 local M = {}
 
@@ -147,11 +148,13 @@ function M.restore(context, payload)
   subscribe()
   command.execute({ action = "show", source = "filesystem", dir = context.root })
   vim.schedule(function()
-    restore_expanded(context, payload)
-    local open, win = is_open()
-    if open and payload.width then
-      pcall(vim.api.nvim_win_set_width, win, payload.width)
-    end
+    util.without_equalalways(function()
+      restore_expanded(context, payload)
+      local open, win = is_open()
+      if open and payload.width then
+        pcall(vim.api.nvim_win_set_width, win, payload.width)
+      end
+    end)
   end)
 end
 

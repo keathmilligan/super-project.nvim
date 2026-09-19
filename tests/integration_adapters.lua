@@ -101,6 +101,57 @@ h.truthy(expanded and refreshes > 0, "neo-tree expanded nodes are restored")
 h.equal(selected, project_root .. "/one.txt", "neo-tree selection is restored")
 
 pcall(vim.api.nvim_del_user_command, "Neotree")
+vim.api.nvim_create_user_command("Neotree", function(args)
+  if args.args == "close" then
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      local buffer = vim.api.nvim_win_get_buf(win)
+      if vim.bo[buffer].filetype == "neo-tree" and vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_close(win, true)
+      end
+    end
+  end
+end, { nargs = "*" })
+
+require("super-project").setup({
+  discovery = { roots = { project_root }, observe_git_cwd = false },
+  storage = { directory = root .. "/data" },
+  startup = { defer_when_dashboard = true },
+  integrations = { neo_tree = true, super_tree = false, barbar = false },
+})
+vim.o.equalalways = true
+vim.cmd("only")
+vim.cmd("edit " .. vim.fn.fnameescape(project_root .. "/one.txt"))
+vim.cmd("topleft vertical split")
+local sidebar = vim.api.nvim_get_current_win()
+local sidebar_buffer = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_win_set_buf(sidebar, sidebar_buffer)
+vim.bo[sidebar_buffer].filetype = "neo-tree"
+vim.api.nvim_win_set_width(sidebar, 16)
+vim.wo[sidebar].winfixwidth = true
+vim.cmd("wincmd l")
+vim.cmd("rightbelow vsplit")
+local right = vim.api.nvim_get_current_win()
+vim.api.nvim_win_set_width(right, 22)
+local right_width = vim.api.nvim_win_get_width(right)
+h.truthy(right_width < 40, "fixture keeps the right split narrower than half")
+require("super-project.integrations").capture_and_suspend({ root = project_root })
+local remaining = {}
+for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+  if vim.api.nvim_win_get_config(win).relative == "" then
+    remaining[#remaining + 1] = vim.api.nvim_win_get_width(win)
+  end
+end
+h.equal(#remaining, 2, "explorer suspend leaves the editor splits")
+h.truthy(
+  math.abs(remaining[1] - remaining[2]) > 5,
+  "closing an explorer does not equalize remaining splits"
+)
+h.truthy(
+  math.min(remaining[1], remaining[2]) <= right_width + 1,
+  "the narrow split keeps its width when the explorer closes"
+)
+pcall(vim.api.nvim_del_user_command, "Neotree")
+require("super-project")._reset_for_tests()
 package.loaded["neo-tree.sources.manager"] = nil
 package.loaded["neo-tree.command"] = nil
 package.loaded["neo-tree.events"] = nil

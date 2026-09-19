@@ -1,5 +1,6 @@
 local log = require("super-project.log")
 local path = require("super-project.path")
+local util = require("super-project.util")
 
 local M = {}
 local pending
@@ -117,7 +118,9 @@ function M.register_provider(api)
     end,
   })
   if pending and type(instance.restore_state) == "function" then
-    M.restore(pending.context, pending.state)
+    util.without_equalalways(function()
+      M.restore(pending.context, pending.state)
+    end)
   end
   return true
 end
