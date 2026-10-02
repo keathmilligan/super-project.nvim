@@ -27,7 +27,7 @@ super_tree.setup({
 local project = require("super-project").setup({
   discovery = { roots = { project_a, project_b }, observe_git_cwd = false },
   storage = { directory = root .. "/data" },
-  startup = { defer_when_dashboard = true },
+  startup = { open_cwd_project = false, defer_when_dashboard = true },
   integrations = { neo_tree = false, super_tree = true, barbar = false },
 })
 
@@ -64,7 +64,7 @@ h.write(child, {
   "local tree_plugin = require('super-tree')",
   "tree_plugin.setup({ mode = 'sidebar', buffers = { enable = false }, projects = { enable = true }, git = { enable = false }, diagnostics = { enable = false }, fade = { enable = false } })",
   string.format(
-    "local project = require('super-project').setup({ discovery = { roots = { %q, %q }, observe_git_cwd = false }, storage = { directory = %q }, startup = { defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = true, barbar = false } })",
+    "local project = require('super-project').setup({ discovery = { roots = { %q, %q }, observe_git_cwd = false }, storage = { directory = %q }, startup = { open_cwd_project = false, defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = true, barbar = false } })",
     project_a,
     project_b,
     root .. "/data"

@@ -30,7 +30,7 @@ end
 local project = require("super-project").setup({
   discovery = { roots = { project_a, project_b }, observe_git_cwd = false },
   storage = { directory = root .. "/data" },
-  startup = { defer_when_dashboard = true },
+  startup = { open_cwd_project = false, defer_when_dashboard = true },
   sessions = { filetype_delay_ms = 0 },
   integrations = { neo_tree = false, super_tree = false, barbar = false },
 })
@@ -125,7 +125,7 @@ local cold_child = root .. "/layout-child.lua"
 h.write(cold_child, {
   string.format("vim.opt.runtimepath:prepend(%q)", plugin_root),
   string.format(
-    "local p = require('super-project').setup({ discovery = { roots = { %q, %q }, observe_git_cwd = false }, storage = { directory = %q }, startup = { defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = false, barbar = false } })",
+    "local p = require('super-project').setup({ discovery = { roots = { %q, %q }, observe_git_cwd = false }, storage = { directory = %q }, startup = { open_cwd_project = false, defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = false, barbar = false } })",
     project_a,
     project_b,
     root .. "/data"

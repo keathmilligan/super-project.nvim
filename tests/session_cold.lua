@@ -13,7 +13,7 @@ h.write(project_a .. "/ignored.txt", "ignored buffer")
 local project = require("super-project").setup({
   discovery = { roots = { project_a, project_b }, observe_git_cwd = false },
   storage = { directory = data },
-  startup = { defer_when_dashboard = true },
+  startup = { open_cwd_project = false, defer_when_dashboard = true },
   integrations = { neo_tree = false, super_tree = false, barbar = false },
 })
 h.truthy(project.open(project_a))
@@ -63,7 +63,7 @@ local child = root .. "/cold-child.lua"
 h.write(child, {
   string.format("vim.opt.runtimepath:prepend(%q)", repo),
   string.format(
-    "local project = require('super-project').setup({ discovery = { roots = { %q, %q }, observe_git_cwd = false }, storage = { directory = %q }, startup = { defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = false, barbar = false } })",
+    "local project = require('super-project').setup({ discovery = { roots = { %q, %q }, observe_git_cwd = false }, storage = { directory = %q }, startup = { open_cwd_project = false, defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = false, barbar = false } })",
     project_a,
     project_b,
     data

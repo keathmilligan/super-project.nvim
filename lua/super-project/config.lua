@@ -13,6 +13,7 @@ M.defaults = {
     directory = vim.fn.stdpath("data") .. "/super-project",
   },
   startup = {
+    open_cwd_project = true,
     fallback = "last",
     defer_when_dashboard = false,
   },
@@ -150,6 +151,12 @@ function M.validate(options)
     type(storage.directory) == "string" and storage.directory ~= "",
     "storage.directory",
     "a non-empty string"
+  )
+  expect(
+    errors,
+    type(startup.open_cwd_project) == "boolean",
+    "startup.open_cwd_project",
+    "a boolean"
   )
   expect(
     errors,

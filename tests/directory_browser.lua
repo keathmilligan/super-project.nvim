@@ -12,7 +12,7 @@ vim.fn.mkdir(browser_root .. "/other", "p")
 local project = require("super-project").setup({
   discovery = { roots = { configured }, observe_git_cwd = false },
   storage = { directory = root .. "/data" },
-  startup = { defer_when_dashboard = true },
+  startup = { open_cwd_project = false, defer_when_dashboard = true },
   integrations = { neo_tree = false, super_tree = false, barbar = false },
 })
 

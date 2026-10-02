@@ -103,6 +103,7 @@ Defaults:
     directory = vim.fn.stdpath("data") .. "/super-project",
   },
   startup = {
+    open_cwd_project = true,
     fallback = "last", -- "last" or "empty"
     defer_when_dashboard = false,
   },
@@ -156,6 +157,17 @@ Linked worktrees are independent projects.
 
 `discovery.excludes` applies to configured, Git-observed, persisted, and
 directly opened candidates. Canonically equivalent paths are deduplicated.
+
+### Startup
+
+When Neovim starts without file arguments or stdin, `startup.open_cwd_project`
+opens the project containing the working directory (its Git worktree root, or
+the closest registered project). Set it to `false` to keep the directory
+registered without opening its workspace. `startup.fallback` applies only when
+the working directory is not a project: `"last"` restores the most recent
+project and `"empty"` opens nothing. `startup.defer_when_dashboard = true`
+suppresses the `"last"` fallback so a dashboard plugin can show outside
+projects, while still opening the working-directory project.
 
 ### Sessions and terminals
 

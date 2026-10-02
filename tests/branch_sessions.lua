@@ -7,7 +7,7 @@ local original_branch = vim.trim(h.run({ "git", "branch", "--show-current" }, re
 local project = require("super-project").setup({
   discovery = { roots = { repo }, observe_git_cwd = false },
   storage = { directory = root .. "/data" },
-  startup = { defer_when_dashboard = true },
+  startup = { open_cwd_project = false, defer_when_dashboard = true },
   sessions = { scope = "branch", filetype_delay_ms = 0 },
   integrations = { neo_tree = false, super_tree = false, barbar = false },
 })

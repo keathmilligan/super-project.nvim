@@ -72,5 +72,94 @@ h.equal(
   "startup restores the last project: " .. (fallback_child.stderr or "")
 )
 
+local dashboard_script = root .. "/dashboard-child.lua"
+h.write(dashboard_script, {
+  string.format("vim.opt.runtimepath:prepend(%q)", plugin_root),
+  string.format("vim.api.nvim_set_current_dir(%q)", worktree .. "/nested"),
+  string.format(
+    "local p = require('super-project').setup({ discovery = { roots = {}, observe_git_cwd = true }, storage = { directory = %q }, startup = { defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = false, barbar = false } })",
+    root .. "/data"
+  ),
+  string.format(
+    "assert(vim.wait(3000, function() return p.current() and p.current().root == %q end, 20), 'cwd project was not opened in dashboard mode')",
+    vim.fn.resolve(worktree)
+  ),
+})
+local dashboard_child = vim
+  .system({
+    "nvim",
+    "--headless",
+    "-u",
+    "NONE",
+    "-c",
+    "lua dofile(" .. string.format("%q", dashboard_script) .. ")",
+    "-c",
+    "qa!",
+  }, { cwd = plugin_root, text = true })
+  :wait(10000)
+h.equal(
+  dashboard_child.code,
+  0,
+  "dashboard mode still opens the cwd project: " .. (dashboard_child.stderr or "")
+)
+
+local dashboard_fallback_script = root .. "/dashboard-fallback-child.lua"
+h.write(dashboard_fallback_script, {
+  string.format("vim.opt.runtimepath:prepend(%q)", plugin_root),
+  string.format("vim.api.nvim_set_current_dir(%q)", root),
+  string.format(
+    "local p = require('super-project').setup({ discovery = { roots = {}, observe_git_cwd = false }, storage = { directory = %q }, startup = { fallback = 'last', defer_when_dashboard = true }, integrations = { neo_tree = false, super_tree = false, barbar = false } })",
+    root .. "/data"
+  ),
+  "vim.wait(500, function() return p.current() ~= nil end, 20)",
+  "assert(p.current() == nil, 'last project was restored in dashboard mode')",
+})
+local dashboard_fallback_child = vim
+  .system({
+    "nvim",
+    "--headless",
+    "-u",
+    "NONE",
+    "-c",
+    "lua dofile(" .. string.format("%q", dashboard_fallback_script) .. ")",
+    "-c",
+    "qa!",
+  }, { cwd = plugin_root, text = true })
+  :wait(10000)
+h.equal(
+  dashboard_fallback_child.code,
+  0,
+  "dashboard mode skips the last-project fallback: " .. (dashboard_fallback_child.stderr or "")
+)
+
+local disabled_script = root .. "/disabled-child.lua"
+h.write(disabled_script, {
+  string.format("vim.opt.runtimepath:prepend(%q)", plugin_root),
+  string.format("vim.api.nvim_set_current_dir(%q)", worktree .. "/nested"),
+  string.format(
+    "local p = require('super-project').setup({ discovery = { roots = {}, observe_git_cwd = true }, storage = { directory = %q }, startup = { open_cwd_project = false, fallback = 'last' }, integrations = { neo_tree = false, super_tree = false, barbar = false } })",
+    root .. "/data"
+  ),
+  "vim.wait(500, function() return p.current() ~= nil end, 20)",
+  "assert(p.current() == nil, 'cwd project was opened despite open_cwd_project = false')",
+})
+local disabled_child = vim
+  .system({
+    "nvim",
+    "--headless",
+    "-u",
+    "NONE",
+    "-c",
+    "lua dofile(" .. string.format("%q", disabled_script) .. ")",
+    "-c",
+    "qa!",
+  }, { cwd = plugin_root, text = true })
+  :wait(10000)
+h.equal(
+  disabled_child.code,
+  0,
+  "startup skips the cwd project when disabled: " .. (disabled_child.stderr or "")
+)
+
 h.cleanup(root)
 print("startup_worktree: ok")

@@ -115,7 +115,7 @@ end, { nargs = "*" })
 require("super-project").setup({
   discovery = { roots = { project_root }, observe_git_cwd = false },
   storage = { directory = root .. "/data" },
-  startup = { defer_when_dashboard = true },
+  startup = { open_cwd_project = false, defer_when_dashboard = true },
   integrations = { neo_tree = true, super_tree = false, barbar = false },
 })
 vim.o.equalalways = true

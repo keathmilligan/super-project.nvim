@@ -117,11 +117,7 @@ local function startup(generation)
   if generation ~= startup_generation or switch.current() then
     return
   end
-  if
-    vim.fn.argc() > 0
-    or vim.g.super_project_started_with_stdin
-    or config.options.startup.defer_when_dashboard
-  then
+  if vim.fn.argc() > 0 or vim.g.super_project_started_with_stdin then
     return
   end
 
@@ -135,6 +131,9 @@ local function startup(generation)
   end
   project = project or registry.closest(cwd)
   if project then
+    if not config.options.startup.open_cwd_project then
+      return
+    end
     local ok, err = switch.open(project.root)
     if not ok then
       log.notify("error", "Could not open startup project: " .. tostring(err))
@@ -142,7 +141,10 @@ local function startup(generation)
     return
   end
 
-  if config.options.startup.fallback == "last" then
+  if
+    config.options.startup.fallback == "last"
+    and not config.options.startup.defer_when_dashboard
+  then
     local last = registry.last()
     if last and registry.find(last.root) then
       local ok, err = switch.open(last.root)
